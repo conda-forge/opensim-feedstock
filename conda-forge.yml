@@ -7,4 +7,6 @@ github:
 conda_build:
   error_overlinking: true
 conda_forge_output_validation: true
+bot:
+  automerge: true
 test: native_and_emulated
