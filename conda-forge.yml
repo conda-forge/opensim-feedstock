@@ -1,4 +1,6 @@
 conda_build_tool: rattler-build
+build_platform:
+  osx_arm64: osx_64
 github:
   branch_name: main
   tooling_branch_name: main
@@ -7,3 +9,4 @@ conda_build:
 conda_forge_output_validation: true
 bot:
   automerge: true
+test: native_and_emulated
