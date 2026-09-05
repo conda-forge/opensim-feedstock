@@ -1,8 +1,9 @@
 schema_version: 1
 
 context:
-  # OpenSim 4.6 requires CableSpan via-point APIs merged after Simbody 3.8:
-  # https://github.com/simbody/simbody/pull/828
+  # OpenSim 4.6 requires CableSpan APIs merged after Simbody 3.8:
+  # https://github.com/simbody/simbody/pull/828 and
+  # https://github.com/simbody/simbody/pull/857 (plus prerequisite #832).
   version: "4.6"
 
 package:
@@ -13,19 +14,12 @@ source:
   url: https://github.com/opensim-org/opensim-core/archive/refs/tags/${{ version }}.tar.gz
   sha256: 759ba196e6a744996fed3f19103bf0d2d9906d2233441f35ffbba231ceca7c21
   patches:
-    # Use packaged dependencies and Python's active site-packages directory;
-    # remove once upstream supports this package-managed layout directly.
-    - 0001-use-shared-docopt-and-conda-python-path.patch
-    # Backport https://github.com/opensim-org/opensim-core/pull/4103 and
-    # https://github.com/opensim-org/opensim-core/pull/4158. Remove with the
-    # first OpenSim release that can be packaged and contains both fixes.
-    - 0002-backport-modern-spdlog.patch
+    # Use Python's active site-packages directory and avoid copying libraries
+    # that conda supplies; remove once upstream supports this layout directly.
+    - 0001-use-conda-python-and-external-dependencies.patch
     # conda-forge's spdlog uses external fmt, so use its configuration-aware
     # wrapper headers. Remove once upstream no longer names bundled fmt headers.
     - 0003-use-spdlog-fmt-wrappers.patch
-    # Backport https://github.com/opensim-org/opensim-core/pull/4085;
-    # remove with the first packageable release that contains it.
-    - 0004-fix-array-bool-linking-on-msvc.patch
 
 build:
   number: 0
@@ -47,9 +41,8 @@ requirements:
   host:
     - python
     - numpy
-    # Simbody 3.8 guards relational operators that conflict with modern fmt;
-    # its run export pins the ABI.
-    - simbody >=3.8
+    # Build 2 backports the CableSpan via-point API required by OpenSim 4.6.
+    - simbody ==3.8 *_2
     # Simbody's public inline API exposes these link requirements to consumers.
     # Build against generic-soname Netlib on Unix while retaining provider-
     # neutral libblas/liblapack run exports.
@@ -63,12 +56,11 @@ requirements:
     - fmt
     - spdlog >=1.15.3
     - casadi >=3.6.5
-    - docopt.cpp >=0.6.1
   run:
     - python
-    # These libraries do not publish run exports, but OpenSim links to them or
-    # exposes them in its public CMake interface. spdlog supplies its own.
-    - ${{ pin_compatible("docopt.cpp", upper_bound="x.x") }}
+    # OpenSim 4.6 links to symbols added by the Simbody build-2 backports.
+    - ${{ pin_compatible("simbody", exact=true) }}
+    # ezc3d does not publish run exports. spdlog supplies its own.
     - ${{ pin_compatible("ezc3d", upper_bound="x.x") }}
   run_exports:
     - ${{ pin_subpackage("opensim", upper_bound="x.x") }}
@@ -125,6 +117,8 @@ about:
     # Lepton has no standalone conda-forge package; its source carries the
     # complete MIT grant and copyright notice.
     - Vendors/lepton/src/Parser.cpp
+    # OpenSim 4.6 uses docopt's private API, so this copy cannot be devendored.
+    - Vendors/docopt/LICENSE-MIT
     - NOTICE
 
 extra:

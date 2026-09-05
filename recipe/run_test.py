@@ -8,7 +8,7 @@ import opensim as osim
 
 
 # Exercise the Python bindings and the system Simbody-backed dynamics path.
-assert osim.GetVersion().startswith("4.5.2")
+assert osim.GetVersion().startswith("4.6")
 sample_c3d = Path(osim.__file__).parent / "tests" / "walking2.c3d"
 c3d_tables = osim.C3DFileAdapter().read(str(sample_c3d))
 assert sorted(c3d_tables.keys()) == ["analog", "forces", "markers"]
@@ -25,6 +25,26 @@ state = model.initSystem()
 coordinate.setValue(state, 0.25)
 model.realizePosition(state)
 assert math.isclose(coordinate.getValue(state), 0.25, abs_tol=1e-12)
+
+# Exercise OpenSim 4.6's new Scholz2015 path implementation. The intermediate
+# point is represented by the CableSpan via-point API backported to Simbody.
+path_model = osim.ModelFactory.createDoublePendulum()
+path_spring = osim.PathSpring("path_spring", 1.0, 10.0, 0.0)
+path_spring.set_path(osim.Scholz2015GeometryPath())
+path_model.addComponent(path_spring)
+path = osim.Scholz2015GeometryPath.safeDownCast(path_spring.updPath())
+path.appendPathPoint(path_model.getGround(), osim.Vec3(0.05, 0.05, 0))
+path.appendPathPoint(
+    path_model.getBodySet().get("b0"), osim.Vec3(-0.5, 0.1, 0)
+)
+path.appendPathPoint(
+    path_model.getBodySet().get("b1"), osim.Vec3(-0.5, 0.1, 0)
+)
+path_state = path_model.initSystem()
+path_model.realizePosition(path_state)
+assert path.getNumPathPoints() == 3
+assert math.isfinite(path.getLength(path_state))
+assert path.getLength(path_state) > 0
 
 # Solve a small optimal-control problem through Moco, CasADi, and Ipopt.
 moco_model = osim.Model()
@@ -94,12 +114,10 @@ forbidden_parts = (
     "/include/casadi/",
     "/include/coin/",
     "/include/coin-or/",
-    "/include/docopt/",
     "/include/ezc3d/",
     "/include/simbody/",
     "/include/spdlog/",
     "/lib/cmake/casadi/",
-    "/lib/cmake/docopt/",
     "/lib/cmake/ezc3d/",
     "/lib/cmake/simbody/",
     "/lib/cmake/spdlog/",
@@ -113,7 +131,6 @@ forbidden_parts = (
 forbidden_library_names = (
     "blas",
     "casadi",
-    "docopt",
     "ezc3d",
     "freeglut",
     "ipopt",
@@ -136,6 +153,6 @@ unexpected = sorted(
     )
 )
 assert not unexpected, f"copied dependency payload: {unexpected}"
-assert not any("osimdocopt" in path for path in payload), "bundled docopt was built"
+assert any("osimdocopt" in path for path in payload), "bundled docopt is missing"
 assert any("osimlepton" in path for path in payload), "retained Lepton library missing"
 assert any(path.endswith("opensim/__init__.py") for path in payload)
