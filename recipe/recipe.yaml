@@ -50,7 +50,9 @@ requirements:
       then:
         - libblas * *netlib
         - liblapack * *netlib
-    - ezc3d >=1.5.8
+    # Build 1 adds the ABI run export consumed by this package. Relax the build
+    # selector after that producer-side fix is published.
+    - ezc3d ==1.7.2 *_1
     # conda-forge's spdlog links against external fmt, and OpenSim exposes fmt
     # through its public logging headers.
     - fmt
@@ -60,8 +62,6 @@ requirements:
     - python
     # OpenSim 4.6 links to symbols added by the Simbody build-2 backports.
     - ${{ pin_compatible("simbody", exact=true) }}
-    # ezc3d does not publish run exports. spdlog supplies its own.
-    - ${{ pin_compatible("ezc3d", upper_bound="x.x") }}
   run_exports:
     - ${{ pin_subpackage("opensim", upper_bound="x.x") }}
 
